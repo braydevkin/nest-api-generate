@@ -1,0 +1,78 @@
+import { Controller, Get, Param, Post, Body, Put, Delete, UseGuards, Query, Req } from '@nestjs/common';
+import { ApiOkResponse, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
+
+import { {{pascalCase schemaPluralName}}Service } from './{{camelCase schemaPluralName}}.service';
+import { {{schemaName}} } from '@database/entity/{{schemaName}}.entity';
+import { List{{pascalCase schemaPluralName}}, Store{{schemaName}}DTO, Update{{schemaName}}DTO, {{schemaName}}IncludesDTO, Filter{{schemaPluralName}}DTO } from './dto';
+import { IdUuid } from '@shared/dto/Uuid.dto';
+import { JwtAuthGuard } from '@shared/auth/jwt/jwt-auth.guard';
+import { Roles } from '@shared/auth/roles/roles.decorator';
+import { PaginationDTO } from '@shared/dto';
+import { ROLES } from '@/config';
+import { RolesGuard } from '@/shared/auth/roles/roles.guard';
+import { Request } from 'express';
+import { AuthGuard } from '@nestjs/passport';
+import { FirebaseRolesGuard } from '@/shared/auth/firebase/firebase-roles.guard';
+import { UpdateResult } from 'typeorm';
+
+@ApiTags('{{lowerCase schemaPluralName}}')
+@Controller('{{dashCase schemaPluralName}}')
+export class {{pascalCase schemaPluralName}}Controller {
+    constructor(private readonly service: {{pascalCase schemaPluralName}}Service) {}
+
+    @ApiOkResponse({
+        description: '{{pascalCase schemaPluralName}} obtidas com sucesso.',
+        type: List{{pascalCase schemaPluralName}},
+    })
+    @Get('/')
+    async getAll(
+        @Query() pagination: PaginationDTO, 
+        @Query() filters: Filter{{schemaPluralName}}DTO,
+        @Query() includes: {{schemaName}}IncludesDTO,
+        ): Promise<List{{pascalCase schemaPluralName}}> {
+        return await this.service.getAll(pagination, filters, includes);
+    }
+
+    @ApiCreatedResponse({
+        description: '{{pascalCase schemaName}} cadastrada com sucesso.',
+        type: {{schemaName}},
+    })
+    @UseGuards(AuthGuard('firebase-auth'), FirebaseRolesGuard)
+    @Roles([])
+    @Post('/')
+    async store(@Body() store{{schemaName}}DTO: Store{{schemaName}}DTO): Promise<{{schemaName}}> {
+        return await this.service.store(store{{schemaName}}DTO);
+    }
+
+    @ApiOkResponse({
+        description: '{{pascalCase schemaName}} obtida com sucesso.',
+        type: {{schemaName}},
+    })
+    // @UseGuards(AuthGuard('firebase-auth'), FirebaseRolesGuard)
+    // @Roles([])
+    @Get(':id')
+    async get(@Param() { id }: IdUuid, @Query() includes: {{schemaName}}IncludesDTO): Promise<{{schemaName}}> {
+        return this.service.get(id, includes);
+    }
+
+    @ApiOkResponse({
+        description: '{{pascalCase schemaName}} editada com sucesso.',
+        type: {{schemaName}},
+    })
+    @UseGuards(AuthGuard('firebase-auth'), FirebaseRolesGuard)
+    @Roles([])
+    @Put(':id')
+    async update(@Param() { id }: IdUuid, @Body() updateDTO: Update{{schemaName}}DTO): Promise<UpdateResult> {
+        return this.service.update(id, updateDTO);
+    }
+
+    @ApiOkResponse({
+        description: '{{pascalCase schemaName}} removida com sucesso.',
+    })
+    @UseGuards(AuthGuard('firebase-auth'), FirebaseRolesGuard)
+    @Roles([])
+    @Delete(':id')
+    async delete(@Param() { id }: IdUuid): Promise<void> {
+        await this.service.delete(id);
+    }
+}

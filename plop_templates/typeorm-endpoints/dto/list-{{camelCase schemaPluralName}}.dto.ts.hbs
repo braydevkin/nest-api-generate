@@ -1,0 +1,10 @@
+import { ListResponse } from '@/shared/models';
+import { {{schemaName}} } from '@database/entity/{{schemaName}}.entity';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class List{{schemaPluralName}} extends ListResponse<{{schemaName}}> {
+    @ApiProperty({
+        type: [{{schemaName}}],
+    })
+    results: {{schemaName}}[];
+}

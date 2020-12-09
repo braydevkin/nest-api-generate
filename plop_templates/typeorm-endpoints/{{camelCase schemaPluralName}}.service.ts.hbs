@@ -1,0 +1,110 @@
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { List{{pascalCase schemaPluralName}}, Update{{schemaName}}DTO, Store{{schemaName}}DTO, {{schemaName}}IncludesDTO, Filter{{schemaPluralName}}DTO } from './dto';
+import { Logger } from '@shared/logger/Logger';
+import { {{pascalCase schemaName}} } from '@database/entity/{{pascalCase schemaName}}.entity';
+import { PaginationDTO } from '@shared/dto';
+import { getValidAttributes } from '@/utils/ObjectUtils';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, UpdateResult } from 'typeorm';
+import { JSONObject } from '@shared/models/JSONObject';
+import { handleDateValidFilters } from '@utils/TypeOrmUtils
+
+@Injectable()
+export class {{pascalCase schemaPluralName}}Service {
+    constructor(
+        @InjectRepository({{pascalCase schemaName}})
+        private readonly {{camelCase schemaName}}Repository: Repository<{{pascalCase schemaName}}>,
+        private logger: Logger,
+    ) {
+        this.logger.setContext('{{pascalCase schemaName}}Service');
+    }
+
+    handleIncludes(includes?: {{schemaName}}IncludesDTO): string[] {
+        const relations: string[] = [];
+        if (includes) {
+            // TODO 
+        }
+
+        return relations
+    }
+
+    handleFilters(filters?: Filter{{schemaPluralName}}DTO): JSONObject {
+        let validFilters = filters ? getValidAttributes(filters) : {};
+        validFilters = handleDateValidFilters(validFilters);
+
+        return validFilters;
+    }
+
+    async getAll(
+            pagination: PaginationDTO,
+            filters?: Filter{{schemaPluralName}}DTO,
+            includes?: {{schemaName}}IncludesDTO
+        ): Promise<List{{pascalCase schemaPluralName}}> {
+        this.logger.log(`Listando ` + {{pascalCase schemaName}}.name + `...`);
+        
+        const validFilters = this.handleFilters(filters);
+        const relations = this.handleIncludes(includes);
+
+        const total = await this.{{camelCase schemaName}}Repository.count({
+            where: validFilters,
+        });
+        const {{camelCase schemaPluralName}} = this.{{camelCase schemaName}}Repository.find({
+            where: validFilters,
+            skip: Number(pagination.skip),
+            take: Number(pagination.limit),
+            relations: relations,
+        });
+
+        const result = new List{{pascalCase schemaPluralName}}();
+        result.pagination = {
+            skip: pagination.skip,
+            limit: pagination.limit,
+            total,
+        };
+
+        result.results = await {{camelCase schemaPluralName}};
+
+        return result;
+    }
+
+    async get(id: string, includes?: {{schemaName}}IncludesDTO): Promise<{{pascalCase schemaName}}> {
+        this.logger.log(`Listando ` + {{pascalCase schemaName}}.name + ` ${id}`);
+        
+        const relations = this.handleIncludes(includes);
+
+        const {{camelCase schemaName}} = this.{{camelCase schemaName}}Repository.findOne(id, {
+            relations: relations
+        });
+
+        await {{camelCase schemaName}}
+
+        if (!{{camelCase schemaName}}) {
+            throw new HttpException(`` + {{pascalCase schemaName}}.name + ` não encontrada`, HttpStatus.NOT_FOUND);
+        }
+
+        return {{camelCase schemaName}};
+    }
+
+    async store(storeDTO: Store{{schemaName}}DTO): Promise<{{pascalCase schemaName}}> {
+        this.logger.log('Cadastrando ' + {{pascalCase schemaName}}.name + '...');
+
+        const {{camelCase schemaName}} = await this.{{camelCase schemaName}}Repository.create(storeDTO);
+
+        return await this.{{camelCase schemaName}}Repository.save({{camelCase schemaName}});
+    }
+
+    async update(id: string, updateDTO: Update{{schemaName}}DTO): Promise<UpdateResult> {
+        this.logger.log(`Editando {{pascalCase schemaName}} ${id}`);
+        return await this.{{camelCase schemaName}}Repository.update(id, {
+            ...getValidAttributes(updateDTO),
+        });
+    }
+
+    async delete(id: string): Promise<void> {
+        this.logger.log(`Removendo {{pascalCase schemaName}} ${id}`);
+
+        await this.{{camelCase schemaName}}Repository.update(id, {
+            isDeleted: true,
+        });
+    }
+}
