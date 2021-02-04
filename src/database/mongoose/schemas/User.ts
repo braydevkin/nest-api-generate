@@ -53,7 +53,7 @@ export class User extends Document {
         required: false,
         default: () => Date.now(),
     })
-    createdAt?: Date;
+    createdAt?: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
