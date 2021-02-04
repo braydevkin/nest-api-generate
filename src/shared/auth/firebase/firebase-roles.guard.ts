@@ -1,6 +1,6 @@
+import { FirebaseUser } from './types';
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { FirebaseUser } from '@shared/models';
 
 @Injectable()
 export class FirebaseRolesGuard implements CanActivate {

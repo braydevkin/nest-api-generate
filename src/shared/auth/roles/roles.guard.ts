@@ -1,13 +1,13 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { FirebaseUser, TokenInfos } from '@shared/models';
 import { canAccess } from '@/utils/AuthUtils';
+import { FirebaseUser } from '../firebase/types';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
     constructor(private readonly reflector: Reflector) {}
 
-    matchRoles(roles: string[], user: TokenInfos): boolean {
+    matchRoles(roles: string[], user: FirebaseUser): boolean {
         return roles.some((role) => (user[role] === undefined ? false : user[role] === true));
     }
     canActivate(context: ExecutionContext): boolean {
@@ -18,7 +18,7 @@ export class RolesGuard implements CanActivate {
 
         const request = context.switchToHttp().getRequest();
 
-        const user: TokenInfos = request.user;
+        const user: FirebaseUser = request.user;
         if (!user) {
             return false;
         }

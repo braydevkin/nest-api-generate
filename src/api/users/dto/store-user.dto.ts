@@ -1,26 +1,28 @@
-import { validateOrReject, IsString, IsOptional, IsBoolean, IsEmail, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEmail, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 
 export class StoreUserDTO {
     @ApiProperty()
     @IsString()
-    @IsOptional()
     name: string;
 
     @ApiProperty()
     @IsString()
-    @IsOptional()
     lastname: string;
-
-    firebaseId: string;
 
     @ApiProperty()
     @IsEmail()
-    @IsOptional()
     email: string;
 
     @ApiProperty()
+    @IsString()
     @IsOptional()
+    photoURL?: string;
+
+    @ApiProperty()
+    @IsString()
+    @Length(6, 120)
     password: string;
 
     @ApiProperty({
@@ -31,19 +33,14 @@ export class StoreUserDTO {
     @IsOptional()
     emailIsConfirmed?: boolean;
 
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
+    @Exclude()
     roles: string[];
 
+    @ApiProperty()
     @ApiProperty({
         required: false,
     })
     @IsString()
     @IsOptional()
     whatsapp?: string;
-
-    async validate(): Promise<void> {
-        await validateOrReject(this);
-    }
 }

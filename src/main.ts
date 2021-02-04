@@ -10,6 +10,8 @@ import { Logger } from '@shared/logger/Logger';
 import * as bodyParser from 'body-parser';
 import { verifyConstants } from './utils/EnvUtils';
 
+const logger = new Logger();
+
 async function bootstrap() {
     const appOptions: NestApplicationOptions = {
         cors: false,
@@ -17,12 +19,13 @@ async function bootstrap() {
 
     const app = await NestFactory.create(AppModule, appOptions);
 
-    app.useLogger(new Logger());
+    app.useLogger(logger);
 
     const options = new DocumentBuilder()
         .setTitle('Nest API Generate')
         .setDescription('API built with Nest')
         .setVersion('0.0.1')
+        .addServer('http://localhost:3333')
         .addBearerAuth()
         .build();
 
@@ -49,6 +52,7 @@ async function bootstrap() {
             if (CORS_WHITE_LIST.indexOf(origin) !== -1) {
                 callback(null, true);
             } else {
+                logger.warn(`CORS: Blocking from origin ${origin}`, 'MAIN');
                 callback(null, false);
             }
         },

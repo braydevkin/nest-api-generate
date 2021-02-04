@@ -6,100 +6,100 @@ import {
     Put,
     Delete,
     Query,
-    UseGuards,
     UseInterceptors,
     UploadedFile,
     Post,
+    Patch,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
 
 import { UsersService } from './users.service';
-import { User } from '@database/entity/User.entity';
-import { UpdateUserDTO, FilterUsersDTO } from './dto';
-import { JwtAuthGuard } from '@shared/auth/jwt/jwt-auth.guard';
-import { PaginationDTO } from '@shared/dto';
-import { SelfOrMasterAdminGuard } from '@/shared/auth/selfOrMasterAdmin/selfOrMasterAdmin.guard';
-import { FirebaseSelfOrMasterAdminGuard } from '@/shared/auth/firebase/selfOrMasterAdmin.guard';
-import { AuthGuard } from '@nestjs/passport';
-import { ListUsers } from './dto/list-users.dto';
-import { FirebaseRolesGuard } from '@/shared/auth/firebase/firebase-roles.guard';
+import { User } from '@mongoose/schemas/User';
+import { UpdateUserDTO, FilterUsersDTO, UserIncludesDTO, PatchUserDTO } from './dto';
 import multerS3 from '@/shared/fileUpload/multerS3';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { CountDTO } from '@/shared/models/statistics';
-import { IdUuid } from '@/shared/dto/Uuid.dto';
-import { UpdateResult } from 'typeorm';
+import { ROLES } from '@/config/Constants';
+import { S3UploadedFile } from '@/shared/fileUpload/types/S3UploadedFile';
+import { ApiPaginatedResult } from '@/shared/pagination';
+import { PaginatedResponse } from '@/shared/pagination/types';
+import { IdDTO } from './dto/Id.dto';
+import { FirebaseAuth } from '@/shared/auth/firebase/decorators';
+import { PaginationDTO } from '@/shared/pagination/types/Pagination.dto';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
     constructor(private readonly service: UsersService) {}
 
-    @ApiOkResponse({
-        description: 'Usuários obtidas com sucesso.',
-        type: ListUsers,
-    })
+    @ApiPaginatedResult(User, { description: 'Usuários obtidas com sucesso.' })
+    @FirebaseAuth([ROLES.ADMIN, ROLES.MASTER_ADMIN])
     @Get('/')
-    async getAll(@Query() pagination: PaginationDTO, @Query() filters: FilterUsersDTO): Promise<ListUsers> {
-        return await this.service.getAll(pagination, filters);
+    async getAll(
+        @Query() pagination: PaginationDTO,
+        @Query() filters: FilterUsersDTO,
+        @Query() includes: UserIncludesDTO,
+    ): Promise<PaginatedResponse<User>> {
+        return await this.service.getAll(pagination, filters, includes);
     }
 
     @ApiOkResponse({
         description: 'Usuário obtida com sucesso.',
         type: User,
     })
+    @FirebaseAuth()
     @Get(':id')
-    async getOne(@Param() { id }: IdUuid): Promise<User> {
-        return this.service.getOneByFirebaseId(id);
+    async getOne(@Param('id') id: string, @Query() includes: UserIncludesDTO): Promise<User> {
+        return this.service.getOne(id, includes);
     }
 
     @ApiOkResponse({
         description: 'Usuário editada com sucesso.',
         type: User,
     })
-    @UseGuards(AuthGuard('firebase-auth'), FirebaseSelfOrMasterAdminGuard)
+    @FirebaseAuth()
     @Put(':id')
-    async update(@Param() { id }: IdUuid, @Body() updateDTO: UpdateUserDTO): Promise<UpdateResult> {
+    async update(@Param() { id }: IdDTO, @Body() updateDTO: UpdateUserDTO): Promise<User> {
+        return this.service.update(id, updateDTO);
+    }
+
+    @ApiOkResponse({
+        description: 'Usuário editada com sucesso.',
+        type: User,
+    })
+    @FirebaseAuth()
+    @Patch(':id')
+    async patch(@Param() { id }: IdDTO, @Body() updateDTO: PatchUserDTO): Promise<User> {
         return this.service.update(id, updateDTO);
     }
 
     @ApiOkResponse({
         description: 'Usuário removida com sucesso.',
     })
-    @UseGuards(JwtAuthGuard, SelfOrMasterAdminGuard)
+    @FirebaseAuth()
     @Delete(':id')
-    async delete(@Param() { id }: IdUuid): Promise<void> {
+    async delete(@Param() { id }: IdDTO): Promise<void> {
         return this.service.delete(id);
     }
 
-    @ApiOkResponse({
-        description: 'Usuário removida com sucesso.',
-    })
-    @UseGuards(JwtAuthGuard, SelfOrMasterAdminGuard)
-    @Delete(':id')
-    async storeProducer(@Param() { id }: IdUuid): Promise<void> {
-        return this.service.delete(id);
-    }
-
-    @UseGuards(AuthGuard('firebase-auth'), FirebaseRolesGuard)
-    // @Roles([ROLES.MASTERADMIN])
     @ApiConsumes('multipart/form-data')
     @UseInterceptors(FileInterceptor('thumbnail', multerS3))
-    @Post(':ui/thumbnail/upload')
-    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-    async updateThumbnail(@Param() { id }: IdUuid, @UploadedFile() thumbnail): Promise<void> {
+    @FirebaseAuth()
+    @Post(':id/thumbnail/upload')
+    async updateThumbnail(@Param() { id }: IdDTO, @UploadedFile() thumbnail: S3UploadedFile): Promise<void> {
         const thumbnailUrl = thumbnail.location;
 
-        await this.service.updateThumbnail(id, thumbnailUrl);
+        return await this.service.updateThumbnail(id, thumbnailUrl);
     }
 
-    @ApiOkResponse({
-        description: 'Estatisticas dos usuários obtidas com sucesso.',
-        type: CountDTO,
-    })
-    @Get('/statistics/count')
-    async getStatistics(@Query() filters: FilterUsersDTO): Promise<CountDTO> {
-        return {
-            total: await this.service.getCount(filters),
-        };
+    @FirebaseAuth([ROLES.MASTER_ADMIN, ROLES.ADMIN])
+    @Post(':id/inactivate')
+    async inactivateUser(@Param() { id }: IdDTO): Promise<void> {
+        return await this.service.inactivateUser(id);
+    }
+
+    @FirebaseAuth([ROLES.MASTER_ADMIN, ROLES.ADMIN])
+    @Post(':id/activate')
+    async activateUser(@Param() { id }: IdDTO): Promise<void> {
+        return await this.service.activateUser(id);
     }
 }

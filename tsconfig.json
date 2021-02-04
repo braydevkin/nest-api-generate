@@ -35,8 +35,8 @@
             "@utils/*": ["./utils/*"],
             "@utils": ["./utils"],
 
-            "@mongoose/*": ["./mongoose/*"],
-            "@mongoose": ["./mongoose"]
+            "@mongoose/*": ["./database/mongoose/*"],
+            "@mongoose": ["./database/mongoose"]
         }
     },
     "include": ["./src/**/*", "tsconfig.json"],

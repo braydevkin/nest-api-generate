@@ -5,7 +5,6 @@ import path from 'path';
 import { getUniqueFilenameFromFile, gigabytesToBytes } from '@utils';
 
 function getLocalOptions(allowedMimes: string[], maxFileSizeInGb?: number, folderName?: string): MulterOptions {
-    const fileSize = gigabytesToBytes(maxFileSizeInGb || 2);
     return {
         storage: multer.diskStorage({
             destination: path.resolve(UPLOADS_PATH, folderName),
@@ -14,7 +13,7 @@ function getLocalOptions(allowedMimes: string[], maxFileSizeInGb?: number, folde
             },
         }),
         limits: {
-            fileSize: fileSize,
+            fileSize: gigabytesToBytes(maxFileSizeInGb || 2),
         },
         fileFilter: (req: Express.Request, file: Express.Multer.File, cb: any) => {
             if (allowedMimes.includes(file.mimetype)) {
@@ -32,8 +31,8 @@ export function getLocalVideoOptions(maxFileSize?: number): MulterOptions {
     return getLocalOptions(allowedMimes, maxFileSize, folderName);
 }
 
-export function getServiceAccountUploadOptions(maxFileSizeInGb?: number): MulterOptions {
-    const allowedMimes = ['application/json'];
-    const folderName = 'serviceAccounts';
+export function getLocalDocumentsVideoOptions(maxFileSizeInGb?: number): MulterOptions {
+    const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/png', 'application/pdf'];
+    const folderName = 'documentos';
     return getLocalOptions(allowedMimes, maxFileSizeInGb, folderName);
 }

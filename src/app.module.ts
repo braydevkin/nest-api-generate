@@ -5,24 +5,12 @@ import Modules from '@api/modules';
 import { LoggerModule } from '@shared/logger/logger.module';
 
 import { AuthModule } from '@shared/auth/auth.module';
-import { PaginationMiddleware } from '@shared/middlewares/pagination.middleware';
-import { JwtStrategy } from '@shared/auth/jwt/jwt.strategy';
-import { FirebaseAdminModule } from '@aginix/nestjs-firebase-admin';
-import { FirebaseAdminConfig } from '@config';
-import { DatabaseModule } from './database/database.module';
+import { DatabaseModule } from '@database/database.module';
+import { PaginationMiddleware } from '@shared/pagination/middlewares/pagination.middleware';
 
 @Module({
-    imports: [
-        ConfigModule.forRoot(),
-        DatabaseModule,
-        AuthModule,
-        LoggerModule,
-        FirebaseAdminModule.forRootAsync({
-            useFactory: () => FirebaseAdminConfig,
-        }),
-        ...Modules,
-    ],
-    providers: [AuthModule, JwtStrategy],
+    imports: [ConfigModule.forRoot(), DatabaseModule, AuthModule, LoggerModule, ...Modules],
+    providers: [AuthModule],
 
     controllers: [],
 })

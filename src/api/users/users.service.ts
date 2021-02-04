@@ -1,126 +1,85 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Repository } from 'typeorm';
-import { UpdateUserDTO, FilterUsersDTO } from './dto';
+import { FilterUsersDTO, UserIncludesDTO } from './dto';
 import { Logger } from '@shared/logger/Logger';
-import { PaginationDTO } from '@shared/dto';
+import { Model, Query } from 'mongoose';
+import { User } from '@mongoose/schemas/User';
+import { InjectModel } from '@nestjs/mongoose';
 import { getValidAttributes } from '@/utils/ObjectUtils';
 import * as admin from 'firebase-admin';
 import { ROLES } from '@/config';
 import { StoreUserDTO } from './dto/store-user.dto';
-import { GoogleFirebaseUser, JSONObject } from '@/shared/models';
-import { ListUsers } from './dto/list-users.dto';
-import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '@/database/entity/User.entity';
-import { UpdateResult } from 'typeorm';
-import { handleDateValidFilters } from '@/utils/TypeOrmUtils';
-import { UserIncludesDTO } from './dto/users-includes.dto';
+import { GoogleFirebaseUser, JSONObject } from '@/shared/types';
+import { fromDateToDateFilter, isValidMongooseId } from '@utils';
+import { getPagination, PaginatedResponse } from '@/shared/pagination';
+import { PaginationDTO } from '@/shared/pagination/types/Pagination.dto';
+
 @Injectable()
 export class UsersService {
-    constructor(
-        @InjectRepository(User)
-        private readonly usersRepository: Repository<User>,
-        private logger: Logger,
-    ) {
+    constructor(@InjectModel(User.name) private userModel: Model<User>, private logger: Logger) {
         this.logger.setContext(`${User.name}Service`);
     }
 
-    handleIncludes(includes?: UserIncludesDTO): string[] {
-        const relations: string[] = [];
+    private handleFilters(filters?: FilterUsersDTO): JSONObject {
+        const validFilters = filters ? getValidAttributes(filters) : {};
 
-        if (includes) {
-            if (includes.includeContextAnswers === true) {
-                relations.push('contextAnswers');
-            }
-            if (includes.includeSessions === true) {
-                relations.push('sessions');
-            }
+        if (validFilters.fromDate || validFilters.toDate) {
+            validFilters.createdAt = fromDateToDateFilter(validFilters.fromDate, validFilters.toDate);
+
+            delete validFilters.fromDate;
+            delete validFilters.toDate;
         }
-
-        return relations;
-    }
-
-    handleFilters(filters?: FilterUsersDTO): JSONObject {
-        let validFilters = filters ? getValidAttributes(filters) : {};
-        validFilters = handleDateValidFilters(validFilters);
 
         return validFilters;
     }
 
-    async getAll(pagination: PaginationDTO, filters?: FilterUsersDTO, includes?: UserIncludesDTO): Promise<ListUsers> {
+    private handleIncludes<T>(query: Query<T, User>, includes?: UserIncludesDTO): Query<T, User> {
+        if (includes) {
+        }
+        return query;
+    }
+
+    async getAll(
+        pagination: PaginationDTO,
+        filters?: FilterUsersDTO,
+        includes?: UserIncludesDTO,
+    ): Promise<PaginatedResponse<User>> {
         this.logger.log(`Listando ${User.name}...`);
-
         const validFilters = this.handleFilters(filters);
-        const relations = this.handleIncludes(includes);
 
-        const total = await this.usersRepository.count({
-            where: validFilters,
-        });
-        const users = this.usersRepository.find({
-            where: validFilters,
-            skip: Number(pagination.skip),
-            take: Number(pagination.limit),
-            relations: relations,
-        });
+        const total = await this.userModel.countDocuments(validFilters);
+        let query = this.userModel.find(validFilters).skip(Number(pagination.skip)).limit(Number(pagination.limit));
 
-        const result = new ListUsers();
-        result.pagination = {
+        query = this.handleIncludes(query, includes);
+
+        const result = new PaginatedResponse<User>();
+        result.pagination = getPagination({
             skip: Number(pagination.skip),
             limit: Number(pagination.limit),
             total,
-        };
+        });
 
-        result.results = await users;
+        result.results = await query;
 
         return result;
     }
+
     async getOne(id: string, includes?: UserIncludesDTO): Promise<User> {
-        this.logger.log(`Listando ${User.name} ${id}`);
+        this.logger.debug(`Listando ${User.name} ${id}`);
+        id = String(id).toString();
 
-        const relations = this.handleIncludes(includes);
+        let query: Query<User, User>;
 
-        const user = await this.usersRepository.findOne(id, {
-            relations: relations,
-        });
-
-        if (!user) {
-            throw new HttpException(`${User.name} não encontrada`, HttpStatus.NOT_FOUND);
+        if (isValidMongooseId(id)) {
+            query = this.userModel.findOne({
+                _id: id,
+            });
+        } else {
+            query = this.userModel.findOne({
+                firebaseId: id,
+            });
         }
 
-        return await user;
-    }
-
-    async storeLocalUser(storeUserDTO: StoreUserDTO): Promise<void> {
-        const firebaseUser = await this.storeFirebaseUser(storeUserDTO).catch((err) => {
-            this.logger.error(`Erro ao cadastrar Usuário ${storeUserDTO.email} no Firebase`, err);
-            throw err;
-        });
-        storeUserDTO.firebaseId = firebaseUser.uid;
-
-        try {
-            const user = await this.usersRepository.create(storeUserDTO);
-
-            await this.usersRepository.save(user);
-        } catch (err) {
-            this.logger.error(`Erro ao cadastrar Usuário ${storeUserDTO.email}`, err);
-            await admin.auth().deleteUser(firebaseUser.uid);
-            throw err;
-        }
-    }
-
-    async verifyIfExistsByEmail(email: string): Promise<boolean> {
-        return (
-            (await this.usersRepository.count({
-                email,
-            })) > 0
-        );
-    }
-
-    async getOneByFirebaseId(uid: string): Promise<User> {
-        this.logger.log(`Listando ${User.name} pelo Firebase ID ${uid}`);
-
-        const user = await this.usersRepository.findOne({
-            firebaseId: uid,
-        });
+        const user = await this.handleIncludes(query, includes);
 
         if (!user) {
             throw new HttpException(`${User.name} não encontrado`, HttpStatus.NOT_FOUND);
@@ -129,52 +88,91 @@ export class UsersService {
         return user;
     }
 
-    async getOneByEmailWithPassword(email: string): Promise<User> {
-        this.logger.log(`Listando ${User.name} ${email}`);
+    async storeUser(storeUserDTO: StoreUserDTO, roles: string[]): Promise<void> {
+        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
 
-        const user = await this.usersRepository.findOne({
-            email,
-        });
-
-        if (!user) {
-            throw new HttpException(`${User.name} não encontrado`, HttpStatus.NOT_FOUND);
+        if (exists) {
+            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
         }
 
-        return await user;
-    }
-    async update(id: string, updateDTO: UpdateUserDTO): Promise<UpdateResult> {
-        this.logger.log(`Editando ${User.name} ${id}`);
-
-        const validAttributes = getValidAttributes(updateDTO);
-
-        await admin.auth().updateUser(id, {
-            displayName: `${updateDTO.name} ${updateDTO.lastname}`,
+        const firebaseUser = await this.storeFirebaseUser(storeUserDTO).catch((err) => {
+            this.logger.error(`Erro ao cadastrar Usuário ${storeUserDTO.email} no Firebase`, err);
+            throw err;
         });
 
+        await this.userModel
+            .create({
+                ...storeUserDTO,
+                roles,
+                firebaseId: firebaseUser.uid,
+                photoURL: firebaseUser.photoURL,
+            })
+            .catch(async (err) => {
+                this.logger.error(`Erro ao cadastrar Usuário ${storeUserDTO.email}`, err);
+                await admin.auth().deleteUser(firebaseUser.uid);
+                throw err;
+            });
+    }
+
+    async verifyIfExistsByEmail(email: string): Promise<boolean> {
+        return await this.userModel.exists({
+            email,
+        });
+    }
+
+    async setFirebaseUserRoles(firebaseId: string, roles: string[]): Promise<void> {
+        const userClaims = {};
+
+        Object.values(ROLES).forEach((role) => {
+            userClaims[role] = false;
+        });
+
+        roles.forEach((role) => {
+            userClaims[role] = true;
+        });
+
+        return await admin.auth().setCustomUserClaims(firebaseId, userClaims);
+    }
+
+    async update(id: string, dto: Partial<User>): Promise<User> {
+        this.logger.log(`Editando ${User.name} ${id}`);
         const user = await this.getOne(id);
-        return await this.usersRepository.update(
+
+        if (dto.name || dto.lastname) {
+            await admin.auth().updateUser(user.firebaseId, {
+                displayName: `${dto.name || user.name || ''} ${dto.lastname || user.name || ''}`,
+            });
+        }
+
+        const updated = await this.userModel.findByIdAndUpdate(
+            user._id,
             {
-                firebaseId: id,
+                ...dto,
             },
             {
-                ...user,
-                ...validAttributes,
+                lean: true,
             },
         );
+
+        return updated as User;
     }
 
     async delete(id: string): Promise<void> {
         this.logger.log(`Removendo ${User.name} ${id}`);
 
-        await admin.auth().updateUser(id, {
+        const user = await this.getOne(id);
+
+        await admin.auth().updateUser(user.firebaseId, {
             disabled: true,
         });
-        await this.usersRepository.update(
+        return await this.userModel.updateOne(
             {
-                firebaseId: id,
+                firebaseId: user.firebaseId,
             },
             {
-                isDeleted: true,
+                $set: {
+                    isDeleted: true,
+                },
             },
         );
     }
@@ -184,7 +182,7 @@ export class UsersService {
             email: storeUserDTO.email,
             password: storeUserDTO.password,
             displayName: `${storeUserDTO.name} ${storeUserDTO.lastname}`,
-            emailVerified: !storeUserDTO.emailIsConfirmed ? false : storeUserDTO.emailIsConfirmed,
+            emailVerified: !!storeUserDTO.emailIsConfirmed,
             disabled: false,
         });
 
@@ -203,96 +201,23 @@ export class UsersService {
         return userRecord;
     }
 
-    async storeProducer(storeUserDTO: StoreUserDTO): Promise<void> {
-        this.logger.log(`Cadastrando Produtor ${storeUserDTO.email}`);
-        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
-
-        if (exists) {
-            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
-        }
-        storeUserDTO.emailIsConfirmed = true;
-        storeUserDTO.roles = [ROLES.USER_HOTELARIA];
-
-        await this.storeLocalUser(storeUserDTO);
-    }
-
-    async storeAdmin(storeUserDTO: StoreUserDTO): Promise<void> {
-        this.logger.log(`Cadastrando Administrador ${storeUserDTO.email}`);
-        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
-
-        if (exists) {
-            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
-        }
-
-        storeUserDTO.roles = [ROLES.ADMIN];
-
-        await this.storeLocalUser(storeUserDTO);
-    }
-
-    async storeUser(storeUserDTO: StoreUserDTO): Promise<void> {
-        this.logger.log(`Cadastrando User ${storeUserDTO.email}`);
-        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
-
-        if (exists) {
-            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
-        }
-
-        storeUserDTO.roles = [ROLES.USER_HOTELARIA];
-
-        await this.storeLocalUser(storeUserDTO);
-    }
-
-    async storeMasterAdmin(storeUserDTO: StoreUserDTO): Promise<void> {
-        this.logger.log(`Cadastrando Administrador Master ${storeUserDTO.email}`);
-        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
-
-        if (exists) {
-            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
-        }
-
-        storeUserDTO.roles = [ROLES.ADMIN];
-
-        await this.storeLocalUser(storeUserDTO);
-    }
-
-    async storeSuport(storeUserDTO: StoreUserDTO): Promise<void> {
-        this.logger.log(`Cadastrando usuário do suporte ${storeUserDTO.email}`);
-        const exists = await this.verifyIfExistsByEmail(storeUserDTO.email);
-
-        if (exists) {
-            throw new HttpException('Email already used', HttpStatus.BAD_REQUEST);
-        }
-
-        storeUserDTO.roles = [ROLES.SUPPORT];
-
-        await this.storeLocalUser(storeUserDTO);
-    }
-
     async storeByGoogle(googleFirebaseUser: GoogleFirebaseUser, roles: string[]): Promise<void> {
         const userDTO = new StoreUserDTO();
         const googleFirebaseUserNames = googleFirebaseUser.name.split(' ');
 
         userDTO.email = googleFirebaseUser.email;
         userDTO.name = googleFirebaseUserNames[0];
+        userDTO.photoURL = googleFirebaseUser.picture;
         userDTO.lastname = googleFirebaseUserNames.length >= 2 ? googleFirebaseUserNames[1] : '';
         userDTO.emailIsConfirmed = googleFirebaseUser.email_verified;
-        userDTO.firebaseId = googleFirebaseUser.uid;
         userDTO.roles = roles;
 
-        const user = await this.usersRepository.create(userDTO);
+        await this.setFirebaseUserRoles(googleFirebaseUser.uid, roles);
 
-        await this.usersRepository.save(user);
-    }
-
-    async storeUserByGoogle(googleFirebaseUser: GoogleFirebaseUser): Promise<void> {
-        const roles = [ROLES.USER_HOTELARIA];
-        const exists = await this.verifyIfExistsByEmail(googleFirebaseUser.email);
-        if (exists !== true) {
-            this.logger.log(`Cadastrando User ${googleFirebaseUser.email} usando o Google`);
-            await this.storeByGoogle(googleFirebaseUser, roles);
-            return;
-        }
-        this.logger.log(`Realizando login do User ${googleFirebaseUser.email} usando o Google`);
+        await this.userModel.create({
+            ...userDTO,
+            firebaseId: googleFirebaseUser.uid,
+        });
     }
 
     async updateThumbnail(uid: string, thumbnail: string): Promise<void> {
@@ -300,17 +225,25 @@ export class UsersService {
         await admin.auth().updateUser(uid, {
             photoURL: thumbnail,
         });
+
+        await this.update(uid, {
+            photoURL: thumbnail,
+        });
     }
 
-    async getCount(filters?: FilterUsersDTO): Promise<number> {
-        this.logger.log(`Listando número de ${User.name}'s`);
+    async inactivateUser(id: string): Promise<void> {
+        const user = await this.getOne(id);
 
-        const validFilters = filters ? getValidAttributes(filters) : {};
-
-        const total = await this.usersRepository.count({
-            where: validFilters,
+        await admin.auth().updateUser(user.firebaseId, {
+            disabled: true,
         });
+    }
 
-        return total;
+    async activateUser(id: string): Promise<void> {
+        const user = await this.getOne(id);
+
+        await admin.auth().updateUser(user.firebaseId, {
+            disabled: false,
+        });
     }
 }

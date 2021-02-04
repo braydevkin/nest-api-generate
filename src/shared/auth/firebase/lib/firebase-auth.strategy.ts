@@ -2,17 +2,17 @@ import { Logger } from '@nestjs/common';
 import { JwtFromRequestFunction } from 'passport-jwt';
 import { Strategy } from 'passport-strategy';
 import { Request } from 'express';
-import { FirebaseUser } from '@shared/models';
 import * as admin from 'firebase-admin';
+import { FIREBASE_ADMIN_NAME } from '@aginix/nestjs-firebase-admin';
+import { FirebaseUser } from '../types';
 
 export interface FirebaseAuthStrategyOptions {
     extractor: JwtFromRequestFunction;
 }
 const UNAUTHORIZED = 'Usuário nao autenticado';
-const FIREBASE_AUTH = 'firebase-auth';
 
 export class FirebaseAuthStrategy extends Strategy {
-    readonly name = FIREBASE_AUTH;
+    readonly name = FIREBASE_ADMIN_NAME;
 
     constructor(
         options: FirebaseAuthStrategyOptions,

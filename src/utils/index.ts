@@ -8,7 +8,6 @@ export * from './EnvUtils';
 export * from './MongooseUtils';
 export * from './RegexUtils';
 export * from './UniqueUtils';
-export * from './SessionUtils';
 export * from './StringTemplateUtils';
 export * from './VenomUtils';
 export * from './DialogflowUtils';
