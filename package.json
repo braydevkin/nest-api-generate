@@ -46,7 +46,6 @@
         "@nestjs/websockets": "^7.4.4",
         "@types/bluebird": "^3.5.33",
         "aws-sdk": "^2.756.0",
-        "bcrypt": "^5.0.0",
         "bluebird": "^3.7.2",
         "class-transformer": "^0.3.1",
         "class-transformer-validator": "^0.9.1",
@@ -73,7 +72,6 @@
         "stripe": "^8.96.0",
         "swagger-ui-express": "^4.1.4",
         "ts-mailgun": "^0.4.3",
-        "venom-bot": "^2.0.22",
         "vimeo": "^2.1.1"
     },
     "devDependencies": {

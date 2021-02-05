@@ -1,10 +1,5 @@
 import path from 'path';
 import { sanitizeToURLSafe } from './RegexUtils';
-import { v4 as uuid } from 'uuid';
-
-export function generateId(): string {
-    return uuid();
-}
 
 export function getUniqueFilenameFromPath(originalName: string): string {
     return (

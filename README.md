@@ -6,6 +6,11 @@
 ### Features
 - [x] - Firebase Authentication
 - [x] - Role based Authorization
+- [] - Listing filtering
+- [] - Selection of desired fields
+- [] - Populate of desired fields
+
+
 ### REST route structure
 
 - POST '/': To create an entity

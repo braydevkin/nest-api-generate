@@ -9,9 +9,9 @@ import * as admin from 'firebase-admin';
 import { ROLES } from '@/config';
 import { StoreUserDTO } from './dto/store-user.dto';
 import { GoogleFirebaseUser, JSONObject } from '@/shared/types';
-import { fromDateToDateFilter, isValidMongooseId } from '@utils';
 import { getPagination, PaginatedResponse } from '@/shared/pagination';
 import { PaginationDTO } from '@/shared/pagination/types/Pagination.dto';
+import { fromDateToDateFilter, isValidMongooseId } from '@/database/mongoose/utils/MongooseUtils';
 
 @Injectable()
 export class UsersService {
