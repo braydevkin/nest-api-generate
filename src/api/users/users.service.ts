@@ -188,7 +188,7 @@ export class UsersService {
 
         const userClaims = {};
 
-        Object.keys(ROLES).forEach((role) => {
+        Object.values(ROLES).forEach((role) => {
             userClaims[role] = false;
         });
 
