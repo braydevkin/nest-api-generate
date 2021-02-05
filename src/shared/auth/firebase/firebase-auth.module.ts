@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
-import { FirebaseAdminConfig } from '@/config';
 import { FirebaseStrategy } from './firebase.strategy';
 import { FirebaseAdminModule } from '@aginix/nestjs-firebase-admin';
+import * as admin from 'firebase-admin';
 
 const firebaseAdminModule = FirebaseAdminModule.forRootAsync({
-    useFactory: () => FirebaseAdminConfig,
+    useFactory: () => ({
+        credential: admin.credential.applicationDefault(),
+    }),
 });
 @Module({
     providers: [FirebaseStrategy],
     imports: [firebaseAdminModule],
-    exports: [FirebaseStrategy, firebaseAdminModule],
+    exports: [firebaseAdminModule, FirebaseStrategy],
 })
 export class FirebaseAuthModule {}

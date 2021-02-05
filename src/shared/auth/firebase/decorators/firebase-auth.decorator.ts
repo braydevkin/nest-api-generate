@@ -4,6 +4,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { FirebaseRolesGuard } from '../firebase-roles.guard';
 import { Roles } from '../../roles/roles.decorator';
 
-export function FirebaseAuth(allowedRoles?: string[]): MethodDecorator {
+export function FirebaseAuth(allowedRoles?: string[]): any {
     return applyDecorators(UseGuards(AuthGuard(FIREBASE_ADMIN_NAME), FirebaseRolesGuard), Roles(allowedRoles));
 }

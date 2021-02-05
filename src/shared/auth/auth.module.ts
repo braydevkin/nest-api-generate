@@ -4,6 +4,6 @@ import { FirebaseAuthModule } from './firebase/firebase-auth.module';
 @Module({
     providers: [],
     imports: [FirebaseAuthModule],
-    exports: [],
+    exports: [FirebaseAuthModule],
 })
 export class AuthModule {}

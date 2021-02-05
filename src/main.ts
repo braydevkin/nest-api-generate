@@ -1,5 +1,10 @@
 import 'reflect-metadata';
 import { APP_PORT, CORS_WHITE_LIST, APP_HOST } from '@config/Constants';
+import * as admin from 'firebase-admin';
+import { FirebaseAdminConfig } from './config';
+
+admin.initializeApp(FirebaseAdminConfig);
+
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as fs from 'fs';
