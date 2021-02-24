@@ -30,7 +30,7 @@ async function bootstrap() {
         .setTitle('Nest API Generate')
         .setDescription('API built with Nest')
         .setVersion('0.0.1')
-        .addServer('http://localhost:3333')
+        .addServer(`http://localhost:${APP_PORT}/`)
         .addBearerAuth()
         .build();
 
